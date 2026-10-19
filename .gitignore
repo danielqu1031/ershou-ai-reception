@@ -1,0 +1,25 @@
+# Private runtime data and credentials
+config.local.json
+.env
+.env.*
+!.env.example
+data/
+*.sqlite
+*.sqlite-*
+*.db
+*.log
+*.pid
+*.har
+*.pem
+*.key
+# Local builds and environments
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+keychain-helper
+*.plist
+*.plist.disabled
+.DS_Store
+build/
+dist/
