@@ -88,3 +88,21 @@ def test_windows_stop_persists_inhibition_without_http(tmp_path, monkeypatch):
     control.stop()
     assert (tmp_path/'recovery.disabled').exists()
     assert control.STOP.exists()
+
+
+def test_windows_ollama_launch_has_no_console(tmp_path, monkeypatch):
+    import manage
+    import subprocess
+    monkeypatch.setattr(manage, 'DATA', tmp_path)
+    monkeypatch.setattr(manage.sys, 'platform', 'win32')
+    monkeypatch.setattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000, raising=False)
+    binary = tmp_path/'ollama.exe'
+    binary.touch()
+    monkeypatch.setattr(manage.shutil, 'which', lambda _: str(binary))
+    answers = iter([False, True])
+    monkeypatch.setattr(manage, 'reachable', lambda _: next(answers))
+    calls = []
+    monkeypatch.setattr(subprocess, 'Popen', lambda *args, **kw: calls.append(kw))
+    manage.ensure_model()
+    assert calls[0]['creationflags'] == subprocess.CREATE_NO_WINDOW
+    assert 'start_new_session' not in calls[0]

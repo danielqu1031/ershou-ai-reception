@@ -1,4 +1,5 @@
 import json
+import pytest
 from pathlib import Path
 import sys
 import threading
@@ -48,7 +49,8 @@ def test_prepared_login_agent_is_disabled_and_has_no_credentials(tmp_path):
     assert config['ProgramArguments'][-1] == str(tmp_path/'app.py')
 
 
-def test_supervisor_sigkill_makes_owned_child_exit(tmp_path):
+@pytest.mark.parametrize('custom_callback', [True, False])
+def test_supervisor_sigkill_makes_owned_child_exit(tmp_path, custom_callback):
     import os
     import subprocess
     import signal
@@ -61,23 +63,38 @@ from parent_watch import watch_parent
 Path('child.pid').write_text(str(os.getpid()))
 asyncio.run(watch_parent(int(os.environ['XIANYU_SUPERVISOR_PIPE']), lambda: Path('parent_lost').touch()))
 """)
+    if not custom_callback:
+        child.write_text(child.read_text().replace(", lambda: Path('parent_lost').touch()", ""))
     env = dict(os.environ, PYTHONPATH=str(source))
     code = 'import sys,threading; from supervisor import supervise; supervise([sys.executable,sys.argv[1]],threading.Event(),cwd=sys.argv[2])'
     parent = subprocess.Popen([sys.executable,'-c',code,str(child),str(tmp_path)], env=env, start_new_session=True)
     child_pid = None
+    child_handle = None
     try:
         deadline = time.monotonic()+3
         while not (tmp_path/'child.pid').exists() and time.monotonic()<deadline: time.sleep(.01)
         child_pid = int((tmp_path/'child.pid').read_text())
         if os.name != 'nt':
             assert os.getpgid(child_pid) == parent.pid
+        else:
+            import ctypes
+            from ctypes import wintypes
+            kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+            kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+            kernel.OpenProcess.restype = wintypes.HANDLE
+            kernel.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+            kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+            child_handle = kernel.OpenProcess(0x100001, False, child_pid)
+            assert child_handle
         parent.kill()  # Only the disposable supervisor created by this test.
         parent.wait(timeout=3)
         deadline = time.monotonic()+3
-        while not (tmp_path/'parent_lost').exists() and time.monotonic()<deadline: time.sleep(.01)
-        assert (tmp_path/'parent_lost').exists()
+        if custom_callback:
+            while not (tmp_path/'parent_lost').exists() and time.monotonic()<deadline: time.sleep(.01)
+            assert (tmp_path/'parent_lost').exists()
         if os.name == 'nt':
-            return  # parent_lost proves the inherited pipe closed on Windows.
+            assert kernel.WaitForSingleObject(child_handle, 3000) == 0
+            return
         while time.monotonic()<deadline:
             try: os.kill(child_pid,0)
             except ProcessLookupError: break
@@ -87,6 +104,12 @@ asyncio.run(watch_parent(int(os.environ['XIANYU_SUPERVISOR_PIPE']), lambda: Path
         if parent.poll() is None:
             parent.terminate()
             parent.wait(timeout=6)
+        if child_handle:
+            if kernel.WaitForSingleObject(child_handle, 0) != 0:
+                kernel.TerminateProcess.argtypes = [wintypes.HANDLE, wintypes.UINT]
+                kernel.TerminateProcess(child_handle, 1)
+                kernel.WaitForSingleObject(child_handle, 3000)
+            kernel.CloseHandle(child_handle)
         if child_pid and os.name != 'nt':
             try: os.kill(child_pid,signal.SIGTERM)
             except ProcessLookupError: pass

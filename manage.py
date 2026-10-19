@@ -85,7 +85,7 @@ def ensure_model():
         env = os.environ.copy()
         env.update(OLLAMA_HOST="127.0.0.1:11434", OLLAMA_NUM_PARALLEL="1", OLLAMA_MAX_LOADED_MODELS="2", OLLAMA_CONTEXT_LENGTH="8192", OLLAMA_NO_CLOUD="true")
         with (DATA/"ollama.log").open("ab") as log:
-            subprocess.Popen([str(binary), "serve"], env=env, cwd=ROOT, stdout=log, stderr=log, start_new_session=True)
+            subprocess.Popen([str(binary), "serve"], env=env, cwd=ROOT, stdout=log, stderr=log, **({"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {"start_new_session": True}))
         for _ in range(30):
             if reachable("http://127.0.0.1:11434/api/version"):
                 break
@@ -103,7 +103,7 @@ def start():
     ensure_model()
     if not reachable(URL) and not AGENT.exists():
         with (DATA/"reception.log").open("ab") as log:
-            process = subprocess.Popen([str(ROOT/".venv/bin/python"), str(ROOT/"supervisor.py"), str(ROOT/"app.py")], cwd=ROOT, stdout=log, stderr=log, start_new_session=True)
+            process = subprocess.Popen([str(ROOT/".venv/bin/python"), str(ROOT/"supervisor.py"), str(ROOT/"app.py")], cwd=ROOT, stdout=log, stderr=log, **({"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {"start_new_session": True}))
         (DATA/"reception.pid").write_text(str(process.pid))
         for _ in range(20):
             if reachable(URL):

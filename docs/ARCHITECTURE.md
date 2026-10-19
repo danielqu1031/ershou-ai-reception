@@ -15,3 +15,9 @@
 - `manage.py` / `startup_control.py`：仅管理当前用户这一个接待任务；主动停止持久禁用恢复。
 
 一个运行实例对应一个账号和一个商品。修改配置需停止后重启，不支持热切换；已有保存登录应先撤销。公共测试仅使用假身份，不能访问真实钥匙串或外部消息系统。
+
+## Windows 适配
+
+`credential_vault.py` 按系统选择凭据后端。`windows_vault.py` 使用当前用户 DPAPI、绑定服务与账号/商品作用域的附加熵，原子写入密文；不使用机器级解密。`file_lock.py` 用 Windows 字节锁或 POSIX flock 串行化保存操作。
+
+`windows_control.py` 管理本项目的 HKCU Run 值、停止标记及独占主管锁。Windows 子进程只继承指定的管道读端句柄；主管退出导致 EOF，接待子进程随之退出。Ollama 与主管使用无控制台后台启动。Mac 的 launchd 与钥匙串路径保留。
