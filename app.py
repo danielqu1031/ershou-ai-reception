@@ -12,7 +12,7 @@ from engine import Reception
 from policy import MODEL, classify, decide
 from xianyu import Xianyu
 from saved_session import ChoiceStore, SavedSession, SessionError
-from keychain_vault import KeychainVault
+from credential_vault import credential_vault
 from recovery_control import RecoveryControl
 
 ROOT = Path(__file__).resolve().parent
@@ -20,7 +20,7 @@ ORIGIN = f"http://127.0.0.1:{PORT}"
 
 
 def render_index(token):
-    page = (ROOT / 'index.html').read_text()
+    page = (ROOT / 'index.html').read_text(encoding='utf-8')
     values = {**PRODUCT, 'price':money(PRODUCT['price']),
               'min_price':money(PRODUCT['min_price']), 'model':CONFIG['model']}
     for name, value in values.items():
@@ -66,7 +66,7 @@ def make_app():
             transport = Xianyu(engine)
             app["engine"], app["transport"], app["session"] = engine, transport, session
             choices = ChoiceStore(data / "session-policy.sqlite")
-            recovery = RecoveryControl(SavedSession(choices, KeychainVault()), engine, transport)
+            recovery = RecoveryControl(SavedSession(choices, credential_vault()), engine, transport)
             app["recovery"] = recovery
             recovery.start()
             parent_task = None
@@ -88,7 +88,7 @@ def make_app():
 
     async def status(request):
         engine, transport = app["engine"], app["transport"]
-        return web.json_response({**engine.snapshot(), "version":"1.0.0", "configured":CONFIGURED, "recovery":app["recovery"].snapshot(), "connection": transport.status, "live_verified": transport.live_verified, "renewal_count": transport.renewal_count, "retry_count":transport.retry_count, "last_confirmed_at":transport.last_confirmed_at, "connection_history":transport.connection_history, "model": state["model"], "model_name": MODEL, "diagnostics": transport.diagnostics, "message_diagnostics": transport.message_diagnostics})
+        return web.json_response({**engine.snapshot(), "version":"1.1.0", "configured":CONFIGURED, "recovery":app["recovery"].snapshot(), "connection": transport.status, "live_verified": transport.live_verified, "renewal_count": transport.renewal_count, "retry_count":transport.retry_count, "last_confirmed_at":transport.last_confirmed_at, "connection_history":transport.connection_history, "model": state["model"], "model_name": MODEL, "diagnostics": transport.diagnostics, "message_diagnostics": transport.message_diagnostics})
 
     async def renew(request):
         if not app['engine'].connected:

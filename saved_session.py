@@ -6,7 +6,7 @@ vault. SQLite contains only scope, choices and revocation state, never cookies.
 import asyncio
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field, replace
-import fcntl
+from file_lock import lock
 import os
 from pathlib import Path
 import re
@@ -105,7 +105,7 @@ class ChoiceStore:
         try:
             while True:
                 try:
-                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    lock(fd)
                     break
                 except BlockingIOError:
                     await asyncio.sleep(.01)

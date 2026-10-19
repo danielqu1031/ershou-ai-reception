@@ -44,7 +44,7 @@ def test_pause_survives_restart_and_never_reads_secret_when_paused(tmp_path):
         restarted = SavedSession(ChoiceStore(path),vault)
         assert await restarted.restore_candidate(SCOPE) is None and not vault.calls
         assert b'TEST_FAKE_SECRET' not in path.read_bytes()
-        assert path.stat().st_mode & 0o777 == 0o600
+        assert __import__('os').name == 'nt' or path.stat().st_mode & 0o777 == 0o600
     asyncio.run(run())
 
 

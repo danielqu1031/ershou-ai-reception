@@ -1,3 +1,7 @@
+import sys
+import pytest
+pytestmark = pytest.mark.skipif(sys.platform == 'win32', reason='macOS launchctl adapter')
+
 def test_stop_while_http_down_blocks_future_restore(tmp_path,monkeypatch):
     import manage
     agent=tmp_path/'agent.plist'

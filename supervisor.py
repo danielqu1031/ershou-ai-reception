@@ -20,7 +20,16 @@ def supervise(command, stop, *, cwd, wait=None, poll_interval=.2):
         read_fd, write_fd = os.pipe()
         env = dict(os.environ, XIANYU_SUPERVISOR_PIPE=str(read_fd))
         try:
-            child = subprocess.Popen(command, cwd=cwd, env=env, pass_fds=(read_fd,))
+            if os.name == 'nt':
+                import msvcrt
+                handle = msvcrt.get_osfhandle(read_fd)
+                os.set_handle_inheritable(handle, True)
+                env['XIANYU_SUPERVISOR_PIPE'] = str(handle)
+                info = subprocess.STARTUPINFO()
+                info.lpAttributeList = {'handle_list': [handle]}
+                child = subprocess.Popen(command, cwd=cwd, env=env, startupinfo=info, close_fds=True)
+            else:
+                child = subprocess.Popen(command, cwd=cwd, env=env, pass_fds=(read_fd,))
         except BaseException:
             os.close(write_fd)
             raise
@@ -60,10 +69,28 @@ def main():
         raise SystemExit('Use the prepared launch-agent configuration.')
     data = root / 'data'
     data.mkdir(mode=0o700, exist_ok=True)
+    instance_fd = None
+    if os.name == 'nt':
+        from windows_control import acquire_instance, STOP
+        instance_fd = acquire_instance()
+        if instance_fd is None:
+            return
+        if STOP.exists():
+            os.close(instance_fd)
+            return
+        def check_stop():
+            while not stop.wait(.2):
+                if STOP.exists():
+                    stop.set()
+        threading.Thread(target=check_stop, daemon=True).start()
     from manage import ensure_model
     ensure_model()
     (data / 'reception.pid').write_text(str(os.getpid()))
-    supervise([sys.executable, expected], stop, cwd=root)
+    try:
+        supervise([sys.executable, expected], stop, cwd=root)
+    finally:
+        if instance_fd is not None:
+            os.close(instance_fd)
 
 
 if __name__ == '__main__':

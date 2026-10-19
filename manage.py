@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 URL = f"http://127.0.0.1:{PORT}/" if PORT is not None else ""
 AGENT = Path.home()/'Library/LaunchAgents'/f'{LABEL}.plist'
-DOMAIN = f'gui/{os.getuid()}'
+DOMAIN = f'gui/{os.getuid()}' if hasattr(os, 'getuid') else ''
 
 
 def launchctl(*args):
@@ -32,6 +32,9 @@ def launchctl(*args):
 
 
 def install():
+    if sys.platform == "win32":
+        from windows_control import install
+        return install()
     require_configured()
     DATA.mkdir(mode=0o700, exist_ok=True)
     if sys.platform != "darwin":
@@ -91,6 +94,9 @@ def ensure_model():
             raise SystemExit("本机模型服务启动失败，请查看本机日志")
 
 def start():
+    if sys.platform == "win32":
+        from windows_control import start
+        return start()
     if AGENT.exists():
         install()
         launchctl('kickstart', f'{DOMAIN}/{LABEL}')
@@ -115,6 +121,9 @@ def start():
 
 
 def stop():
+    if sys.platform == "win32":
+        from windows_control import stop
+        return stop()
     from startup_control import inhibit_recovery
     recorded = False
     try:

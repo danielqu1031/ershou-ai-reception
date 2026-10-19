@@ -12,6 +12,8 @@ def inhibit_recovery(path):
         file.write('Manual re-enable required.\n')
         file.flush()
         os.fsync(file.fileno())
+    if os.name == 'nt':
+        return
     fd = os.open(path.parent, os.O_RDONLY)
     try:
         os.fsync(fd)
@@ -20,6 +22,9 @@ def inhibit_recovery(path):
 
 
 async def disable_startup():
+    if os.name == 'nt':
+        from windows_control import disable
+        return disable()
     process = await asyncio.create_subprocess_exec(
         '/bin/launchctl', 'disable', f'gui/{os.getuid()}/{LABEL}',
         stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)

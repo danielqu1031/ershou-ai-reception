@@ -100,7 +100,7 @@ class RecoveryControl:
                 raise
             except Exception:
                 self.engine.pause()
-                self.notice = '登录钥匙串暂不可用，保持暂停，稍后重试'
+                self.notice = '本机安全存储暂不可用，保持暂停，稍后重试'
                 await asyncio.sleep(30)
 
     async def connect(self, cookie, item, remember=False):
@@ -118,7 +118,7 @@ class RecoveryControl:
                 choice = self.saved.choices.get(self.scope)
                 from saved_session import Credential
                 self.credential = Credential(self.scope, choice.generation, cookie)
-                self.notice = '登录已保存到本机钥匙串；开启自动接待后可自动恢复'
+                self.notice = '登录已保存到本机安全存储；开启自动接待后可自动恢复'
             else:
                 self.notice = '本次连接仅使用内存，重启后不恢复'
             await self.transport.connect(cookie, item)

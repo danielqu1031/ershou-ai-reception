@@ -67,6 +67,7 @@ def test_large_currency_keeps_cents_and_accepts_supported_range(monkeypatch):
     assert '16000元' in policy.decide('16000可以吗','unknown').reply
 
 
+@pytest.mark.skipif(__import__('sys').platform == 'win32', reason='macOS launchctl adapter')
 def test_stop_with_invalid_configuration_still_disables_recovery(tmp_path):
     import runpy
     import sys

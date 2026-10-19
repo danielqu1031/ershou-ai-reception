@@ -69,12 +69,15 @@ asyncio.run(watch_parent(int(os.environ['XIANYU_SUPERVISOR_PIPE']), lambda: Path
         deadline = time.monotonic()+3
         while not (tmp_path/'child.pid').exists() and time.monotonic()<deadline: time.sleep(.01)
         child_pid = int((tmp_path/'child.pid').read_text())
-        assert os.getpgid(child_pid) == parent.pid
+        if os.name != 'nt':
+            assert os.getpgid(child_pid) == parent.pid
         parent.kill()  # Only the disposable supervisor created by this test.
         parent.wait(timeout=3)
         deadline = time.monotonic()+3
         while not (tmp_path/'parent_lost').exists() and time.monotonic()<deadline: time.sleep(.01)
         assert (tmp_path/'parent_lost').exists()
+        if os.name == 'nt':
+            return  # parent_lost proves the inherited pipe closed on Windows.
         while time.monotonic()<deadline:
             try: os.kill(child_pid,0)
             except ProcessLookupError: break
@@ -84,6 +87,6 @@ asyncio.run(watch_parent(int(os.environ['XIANYU_SUPERVISOR_PIPE']), lambda: Path
         if parent.poll() is None:
             parent.terminate()
             parent.wait(timeout=6)
-        if child_pid:
+        if child_pid and os.name != 'nt':
             try: os.kill(child_pid,signal.SIGTERM)
             except ProcessLookupError: pass
